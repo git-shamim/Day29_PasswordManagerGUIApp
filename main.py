@@ -3,6 +3,7 @@ from tkinter import *
 from tkinter import messagebox
 from random import randint, choice, shuffle
 import pyperclip
+import json
 
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
 
@@ -21,7 +22,7 @@ def generate_password():
     password_list = password_letters + password_numbers + password_symbols
     shuffle(password_list)
 
-    password =  "".join(password_list)
+    password = "".join(password_list)
     password_entry.insert(0, password)
     pyperclip.copy(password)
 
@@ -33,6 +34,12 @@ def save_credentials():
     website = website_entry.get()
     email = email_entry.get()
     password = password_entry.get()
+    new_credential = {
+        website: {
+            "email": email,
+            "password": password
+        }
+    }
 
     if len(website) ==0 or len(password) == 0:
         messagebox.showinfo(title="Oops", message="Please make sure you haven't left any field empty")
@@ -43,13 +50,50 @@ def save_credentials():
                                        format(email, password))
 
         if is_ok:
-            with open("data.txt", 'a') as data_file:
-                data_file.write("{},{},{}\n".format(website, email, password))
+            try:
+                with open("data.json", "r") as data_file:
+                    # read old data
+                    existing_credentials = json.load(data_file)
+
+            except FileNotFoundError:
+                with open("data.json", 'w') as data_file:
+                    # write new data
+                    json.dump(new_credential, data_file, indent=4)
+
+            else:
+                # updating with new data
+                existing_credentials.update(new_credential)
+
+                with open("data.json", 'w') as data_file:
+                    # writing updated data
+                    json.dump(existing_credentials, data_file, indent=4)
+
+            finally:
                 website_entry.delete(0, END)
                 password_entry.delete(0, END)
 
-# ---------------------------- UI SETUP ------------------------------- #
 
+# ---------------------------- FIND PASSWORD ------------------------------- #
+
+def find_password():
+    website = website_entry.get()
+    try:
+        with open("data.json") as data_file:
+            existing_credentials = json.load(data_file)
+
+    except FileNotFoundError:
+        messagebox.showinfo(title="Error", message="No data file found")
+
+    else:
+        if website in existing_credentials:
+            email = existing_credentials[website]["email"]
+            password = existing_credentials[website]["password"]
+            messagebox.showinfo(title=website, message="Email: {0}\nPassword: {1}".format(email, password))
+        else:
+            messagebox.showinfo(title="Error", message="No details for {0} was found".format(website))
+
+
+# ---------------------------- UI SETUP ------------------------------- #
 
 window = Tk()
 window.title("Password Manager")
@@ -70,18 +114,24 @@ password_label = Label(text="Password:")
 password_label.grid(row=3, column=0)
 
 # Entries
-website_entry = Entry(width=35)
-website_entry.grid(row=1, column=1, columnspan=2)
+website_entry = Entry(width=21)
+website_entry.grid(row=1, column=1)
 website_entry.focus()
+
 email_entry = Entry(width=35)
 email_entry.grid(row=2, column=1, columnspan=2)
 email_entry.insert(0, "shamim.gcloud@gmail.com")
+
 password_entry = Entry(width=21)
 password_entry.grid(row=3, column=1)
 
 # Buttons
+search_button = Button(text="Search", width=13, command=find_password)
+search_button.grid(row=1, column=2)
+
 generate_password_button = Button(text="Generate Password", command=generate_password)
 generate_password_button.grid(row=3, column=2)
+
 add_button = Button(text="Add Credentials", width=35, command=save_credentials)
 add_button.grid(row=4, column=1, columnspan=2)
 
